@@ -1,4 +1,5 @@
 #include <bits/types/FILE.h>
+#include <cstdint>
 #include <errno.h>
 #include <netdb.h> // for getnameinfo()
 #include <stdio.h>
@@ -30,7 +31,7 @@ void report(struct sockaddr_in *server_address) {
          service_buffer);
 }
 
-void set_http_header(char http_header[], char html_file) {
+void set_http_header(char http_header[], char html_file[]) {
   FILE *html_data = fopen(html_file, "r");
   char line[1000];
   char response_data[8000];
@@ -40,8 +41,28 @@ void set_http_header(char http_header[], char html_file) {
   strcat(http_header, response_data);
 }
 
-void initializer(int custom_port) {
-  if (custom_port == 0) {
-    custom_port = 7575;
+int server_initializer(uint16_t port) {
+  char http_header[8000] = "[OK] HTTP/1.1 200\r\n\n";
+  int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+  struct sockaddr_in server_address;
+  server_address.sin_family = AF_INET;
+  server_address.sin_port = htons(port);
+  server_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  bind(server_socket, (struct sockaddr *)&server_address,
+       sizeof(server_address));
+  int listening = listen(server_socket, BACKLOG);
+  if (listening < 0) {
+    printf("[ERROR] The server is not runnig.");
+    return 1;
   }
+  char fhtml[20] = "index.html";
+  report(&server_address);
+  set_http_header(http_header, fhtml);
+  int client_socket = 0;
+  while (1) {
+    client_socket = accept(server_socket, NULL, NULL);
+    send(client_socket, http_header, sizeof(http_header), 0);
+    close(client_socket);
+  }
+  return 0;
 }
